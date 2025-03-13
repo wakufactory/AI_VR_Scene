@@ -1,0 +1,14 @@
+{
+  "name": "vr-agent-server",
+  "version": "1.0.0",
+  "description": "Auto install dependencies and run server.js",
+  "scripts": {
+    "prestart": "npm install",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.8.2",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}

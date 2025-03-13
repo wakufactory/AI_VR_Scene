@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>AI VR Scene Maker</title>
+  <style>
+    /* ページ全体の初期化 */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden; /* 外側のスクロールは抑制 */
+      font-family: sans-serif;
+      background-color: #222;
+      color: #fff;
+    }
+    /* 全体コンテナ：ヘッダー＋メイン */
+    #container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    /* ヘッダー */
+    header {
+      flex: 0 0 60px;
+      background-color: #333;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+    /* メインコンテンツ：左右に分割 */
+    #mainContent {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    #leftPanel, #rightPanel {
+      padding: 10px;
+      box-sizing: border-box;
+      overflow: auto;
+      background-color: #222;
+    }
+    #leftPanel {
+      flex: 1;
+      max-width: 50%;
+    }
+    #rightPanel {
+      flex: 1;
+      max-width: 50%;
+      border-left: 1px solid #444;
+    }
+    /* 各フォーム要素のスタイル */
+    input, textarea, button {
+      background-color: #333;
+      border: 1px solid #444;
+      color: #fff;
+    }
+    input::placeholder, textarea::placeholder {
+      color: #aaa;
+    }
+    button {
+      cursor: pointer;
+    }
+    /* チャット履歴エリア：高さを400pxに設定し、独自スクロール */
+    #chatHistory {
+      border: 1px solid #444;
+      padding: 10px;
+      margin-top: 10px;
+      height: 400px;
+      overflow-y: auto;
+      background-color: #333;
+    }
+    /* iframe（HTMLプレビュー） */
+    #htmlDisplay {
+      width: 100%;
+      height: 100%;
+      border: 1px solid #444;
+      background-color: #111;
+    }
+    /* プログレスインジケーター（点滅） */
+    #progressIndicator {
+      display: none;
+      font-weight: bold;
+      color: #fff;
+      margin-top: 10px;
+      animation: blink 1s linear infinite;
+    }
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <!-- ヘッダー -->
+    <header>
+      <h1>AI VR Scene Maker</h1>
+    </header>
+    <!-- メインコンテンツ：左右に分割 -->
+    <div id="mainContent">
+      <!-- 左側：チャットインターフェース -->
+      <div id="leftPanel">
+        <div>
+          <label for="projectName">プロジェクト名：</label>
+          <input type="text" id="projectName" placeholder="プロジェクト名を入力" value="project">
+          <button id="setProject">プロジェクト設定</button>
+          <button id="clearHistory">履歴クリア</button>
+        </div>
+        <div style="margin-top:10px;">
+          <label for="systemPrompt">システムプロンプト（ユーザ入力）：</label><br>
+          <textarea id="systemPrompt" rows="4" cols="50" placeholder="必要に応じて追加の仕様を入力"></textarea>
+        </div>
+        <div style="margin-top:10px;">
+          <label for="chatInput">メッセージ：</label><br>
+          <textarea id="chatInput" placeholder="メッセージを入力" rows="3" cols="50"></textarea><br>
+          <button id="sendChat">送信</button>
+        </div>
+        <div id="progressIndicator">考え中</div>
+        <div id="chatHistory"></div>
+      </div>
+      <!-- 右側：HTMLプレビュー（キャプションはなし） -->
+      <div id="rightPanel">
+        <iframe id="htmlDisplay" src=""></iframe>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // 固定システムプロンプトは内部定数（画面には表示しない）
+    const FIXED_SYSTEM_PROMPT = 
+      `ひとつのhtmlファイルでwebアプリを作ってください。返答は、chat部分とhtml部分にわけてjsonで返してください。
+      A-Frameを使って空間を作ってください。y=0に地面があります。
+      a-frameは "https://aframe.io/releases/1.7.0/aframe.min.js" をimportして使ってください。
+      必要に応じてA-Frameやthree.jsのモジュールをcdn等からimportしてください。
+      a-sceneとa-cameraは次のようにしてください。
+      <a-scene isMobile=false device-orientation-permission-ui="enabled: false">
+      <a-camera position="0 2 -5" look-control wasd-controls>
+      特に指示がなければ、生成する物体は"0 1.5 0"が中心となるように配置してください。
+      `;
+    // ユーザシステムプロンプトは全プロジェクト共通で保存するキー
+    const SYSTEM_PROMPT_KEY = 'systemPrompt_common';
+    
+    // プロジェクト名取得（空なら "project"）
+    function getProjectName() {
+      const name = document.getElementById('projectName').value.trim();
+      return name ? name : "project";
+    }
+    // プロジェクトごとのチャット履歴保存キー
+    function getChatHistoryKey(projectName) {
+      return 'chatHistory_' + projectName;
+    }
+    // プロジェクト名の保存
+    const savedProjectName = localStorage.getItem('currentProjectName');
+    if (savedProjectName) {
+      document.getElementById('projectName').value = savedProjectName;
+    }
+    
+    let chatHistory = [];
+    function loadChatHistory() {
+      const projectName = getProjectName();
+      const historyStr = localStorage.getItem(getChatHistoryKey(projectName));
+      chatHistory = historyStr ? JSON.parse(historyStr) : [];
+    }
+    function saveChatHistory() {
+      const projectName = getProjectName();
+      localStorage.setItem(getChatHistoryKey(projectName), JSON.stringify(chatHistory));
+    }
+    
+    // ユーザシステムプロンプトの読み込み・保存（全プロジェクト共通）
+    function loadSystemPrompt() {
+      const prompt = localStorage.getItem(SYSTEM_PROMPT_KEY);
+      document.getElementById('systemPrompt').value = prompt ? prompt : "";
+    }
+    function saveSystemPrompt() {
+      localStorage.setItem(SYSTEM_PROMPT_KEY, document.getElementById('systemPrompt').value);
+    }
+    
+    // チャット履歴表示更新と下部までスクロールする処理
+    function updateChatHistoryDisplay() {
+      const chatDiv = document.getElementById('chatHistory');
+      chatDiv.innerHTML = '';
+      chatHistory.forEach(msg => {
+        const p = document.createElement('p');
+        p.textContent = msg.role + ": " + msg.content;
+        chatDiv.appendChild(p);
+      });
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+    
+    // iframe更新（キャッシュ防止のためタイムスタンプ付与）
+    function updateIframe() {
+      const projectName = getProjectName();
+      document.getElementById('htmlDisplay').src = `/${projectName}.html?t=${new Date().getTime()}`;
+    }
+    
+    // プロジェクト設定ボタン：プロジェクト変更時に履歴とシステムプロンプトを読み込む
+    document.getElementById('setProject').addEventListener('click', () => {
+      const projectName = getProjectName();
+      localStorage.setItem('currentProjectName', projectName);
+      loadChatHistory();
+      loadSystemPrompt();
+      updateChatHistoryDisplay();
+      updateIframe();
+    });
+    
+    // ページ読み込み時にプロジェクトごとの履歴とシステムプロンプトを読み込む
+    window.addEventListener('load', () => {
+      loadChatHistory();
+      loadSystemPrompt();
+      updateChatHistoryDisplay();
+      updateIframe();
+    });
+    
+    // チャット送信処理
+    document.getElementById('sendChat').addEventListener('click', async () => {
+      const projectName = getProjectName();
+      // ユーザが入力したシステムプロンプト
+      const userSystemPrompt = document.getElementById('systemPrompt').value;
+      // 固定システムプロンプトとユーザ入力を結合
+      const combinedSystemPrompt = FIXED_SYSTEM_PROMPT + "\n" + userSystemPrompt;
+      
+      // 共通システムプロンプトは保存
+      saveSystemPrompt();
+      
+      // ユーザ入力のチャットメッセージを取得
+      const userMessage = document.getElementById('chatInput').value;
+      // ユーザメッセージをチャット履歴に追加
+      chatHistory.push({ role: 'user', content: userMessage });
+      updateChatHistoryDisplay();
+      
+      // 送信後、チャット入力欄をクリア
+      document.getElementById('chatInput').value = "";
+      
+      // プログレスインジケーター表示
+      document.getElementById('progressIndicator').style.display = 'block';
+      
+      try {
+        const response = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemPrompt: combinedSystemPrompt,
+            chatHistory: chatHistory,
+            userMessage: userMessage,
+            projectName: projectName
+          })
+        });
+        const data = await response.json();
+        
+        // 受信したアシスタントの返信をチャット履歴に追加
+        chatHistory.push({ role: 'assistant', content: data.chat });
+        updateChatHistoryDisplay();
+        saveChatHistory();
+        
+        // サーバからHTML出力があればiframe更新
+        if (data.html && data.html.trim() !== "") {
+          updateIframe();
+        }
+      } catch (error) {
+        console.error('エラーが発生しました:', error);
+      } finally {
+        document.getElementById('progressIndicator').style.display = 'none';
+      }
+    });
+    
+    // 履歴クリアボタン：プロジェクトごとの履歴をクリア
+    document.getElementById('clearHistory').addEventListener('click', () => {
+      chatHistory = [];
+      const projectName = getProjectName();
+      localStorage.removeItem(getChatHistoryKey(projectName));
+      updateChatHistoryDisplay();
+    });
+  </script>
+</body>
+</html>
