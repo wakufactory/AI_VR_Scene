@@ -119,13 +119,19 @@
   </div>
   
   <script>
-    // ユーザシステムプロンプトはサーバに保存されるため、クライアント側では固定キーのみ使用
+    // ユーザシステムプロンプトは全プロジェクト共通のものとしてサーバに保存される
     const SYSTEM_PROMPT_KEY = 'systemPrompt_common';
 
-    // プロジェクト名取得
+    // プロジェクト名取得（空なら "project"）
     function getProjectName() {
       const name = document.getElementById('projectName').value.trim();
       return name ? name : "project";
+    }
+
+    // ページ読み込み時、ローカルストレージに保存されたプロジェクト名を反映
+    const savedProjectName = localStorage.getItem('currentProjectName');
+    if (savedProjectName) {
+      document.getElementById('projectName').value = savedProjectName;
     }
 
     // ユーザシステムプロンプトの読み込み（サーバから取得）
@@ -176,7 +182,7 @@
       document.getElementById('htmlDisplay').src = `/${projectName}.html?t=${new Date().getTime()}`;
     }
 
-    // プロジェクト設定ボタン：押されたときに、サーバから履歴とユーザシステムプロンプトを読み込む
+    // プロジェクト設定ボタン：押されたときに、サーバから履歴とユーザシステムプロンプトを読み込み、プロジェクト名を保存する
     document.getElementById('setProject').addEventListener('click', async () => {
       const projectName = getProjectName();
       localStorage.setItem('currentProjectName', projectName);
@@ -211,7 +217,7 @@
         await response.json();
         await loadChatHistory();
         updateIframe();
-        // サーバ側からの返信が返ってきた後にメッセージ入力欄をクリア
+        // サーバからの返信後にメッセージ入力欄をクリアする
         document.getElementById('chatInput').value = "";
       } catch (error) {
         console.error('Error sending chat:', error);
