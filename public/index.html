@@ -4,23 +4,20 @@
   <meta charset="UTF-8">
   <title>AI VR Scene Maker</title>
   <style>
-    /* ページ全体の初期化 */
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      overflow: hidden; /* 外側のスクロールは抑制 */
+      overflow: hidden;
       font-family: sans-serif;
       background-color: #222;
       color: #fff;
     }
-    /* 全体コンテナ：ヘッダー＋メイン */
     #container {
       display: flex;
       flex-direction: column;
       height: 100vh;
     }
-    /* ヘッダー */
     header {
       flex: 0 0 60px;
       background-color: #333;
@@ -31,7 +28,6 @@
       margin: 0;
       font-size: 1.5em;
     }
-    /* メインコンテンツ：左右に分割 */
     #mainContent {
       flex: 1;
       display: flex;
@@ -52,19 +48,6 @@
       max-width: 50%;
       border-left: 1px solid #444;
     }
-    /* 各フォーム要素のスタイル */
-    input, textarea, button {
-      background-color: #333;
-      border: 1px solid #444;
-      color: #fff;
-    }
-    input::placeholder, textarea::placeholder {
-      color: #aaa;
-    }
-    button {
-      cursor: pointer;
-    }
-    /* チャット履歴エリア：高さを400pxに設定し、独自スクロール */
     #chatHistory {
       border: 1px solid #444;
       padding: 10px;
@@ -73,14 +56,12 @@
       overflow-y: auto;
       background-color: #333;
     }
-    /* iframe（HTMLプレビュー） */
     #htmlDisplay {
       width: 100%;
       height: 100%;
       border: 1px solid #444;
       background-color: #111;
     }
-    /* プログレスインジケーター（点滅） */
     #progressIndicator {
       display: none;
       font-weight: bold;
@@ -93,17 +74,25 @@
       50% { opacity: 0; }
       100% { opacity: 1; }
     }
+    input, textarea, button {
+      background-color: #333;
+      border: 1px solid #444;
+      color: #fff;
+    }
+    input::placeholder, textarea::placeholder {
+      color: #aaa;
+    }
+    button {
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div id="container">
-    <!-- ヘッダー -->
     <header>
       <h1>AI VR Scene Maker</h1>
     </header>
-    <!-- メインコンテンツ：左右に分割 -->
     <div id="mainContent">
-      <!-- 左側：チャットインターフェース -->
       <div id="leftPanel">
         <div>
           <label for="projectName">プロジェクト名：</label>
@@ -113,7 +102,7 @@
         </div>
         <div style="margin-top:10px;">
           <label for="systemPrompt">システムプロンプト（ユーザ入力）：</label><br>
-          <textarea id="systemPrompt" rows="4" cols="50" placeholder="必要に応じて追加の仕様を入力"></textarea>
+          <textarea id="systemPrompt" rows="4" cols="50" placeholder="追加の仕様を入力"></textarea>
         </div>
         <div style="margin-top:10px;">
           <label for="chatInput">メッセージ：</label><br>
@@ -123,7 +112,6 @@
         <div id="progressIndicator">考え中</div>
         <div id="chatHistory"></div>
       </div>
-      <!-- 右側：HTMLプレビュー（キャプションはなし） -->
       <div id="rightPanel">
         <iframe id="htmlDisplay" src=""></iframe>
       </div>
@@ -131,150 +119,118 @@
   </div>
   
   <script>
-    // 固定システムプロンプトは内部定数（画面には表示しない）
-    const FIXED_SYSTEM_PROMPT = 
-      `ひとつのhtmlファイルでwebアプリを作ってください。返答は、chat部分とhtml部分にわけてjsonで返してください。
-      A-Frameを使って空間を作ってください。y=0に地面があります。
-      a-frameは "https://aframe.io/releases/1.7.0/aframe.min.js" をimportして使ってください。
-      必要に応じてA-Frameやthree.jsのモジュールをcdn等からimportしてください。
-      a-sceneとa-cameraは次のようにしてください。
-      <a-scene isMobile=false device-orientation-permission-ui="enabled: false">
-      <a-entity id=camrig position="0 1 3" ><a-camera look-control wasd-controls></a-camera></a-entity>
-      特に指示がなければ、生成する物体は"0 1.5 0"が中心となるように配置してください。
-      返信のメッセージはhtmlの変更点に絞って解説してください。
-      `;
-    // ユーザシステムプロンプトは全プロジェクト共通で保存するキー
+    // ユーザシステムプロンプトはサーバに保存されるため、クライアント側では固定キーのみ使用
     const SYSTEM_PROMPT_KEY = 'systemPrompt_common';
-    
-    // プロジェクト名取得（空なら "project"）
+
+    // プロジェクト名取得
     function getProjectName() {
       const name = document.getElementById('projectName').value.trim();
       return name ? name : "project";
     }
-    // プロジェクトごとのチャット履歴保存キー
-    function getChatHistoryKey(projectName) {
-      return 'chatHistory_' + projectName;
+
+    // ユーザシステムプロンプトの読み込み（サーバから取得）
+    async function loadUserSystemPrompt() {
+      try {
+        const response = await fetch('/systemPrompt/user');
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('systemPrompt').value = data.userSystemPrompt || "";
+        }
+      } catch (e) {
+        console.error("Error loading user system prompt:", e);
+      }
     }
-    // プロジェクト名の保存
-    const savedProjectName = localStorage.getItem('currentProjectName');
-    if (savedProjectName) {
-      document.getElementById('projectName').value = savedProjectName;
-    }
-    
-    let chatHistory = [];
-    function loadChatHistory() {
+
+    // サーバからチャット履歴を取得して表示する
+    async function loadChatHistory() {
       const projectName = getProjectName();
-      const historyStr = localStorage.getItem(getChatHistoryKey(projectName));
-      chatHistory = historyStr ? JSON.parse(historyStr) : [];
+      try {
+        const response = await fetch(`/chatHistory?projectName=${encodeURIComponent(projectName)}`);
+        if (response.ok) {
+          const history = await response.json();
+          updateChatHistoryDisplay(history);
+        } else {
+          updateChatHistoryDisplay([]);
+        }
+      } catch (e) {
+        console.error("Error loading chat history:", e);
+        updateChatHistoryDisplay([]);
+      }
     }
-    function saveChatHistory() {
-      const projectName = getProjectName();
-      localStorage.setItem(getChatHistoryKey(projectName), JSON.stringify(chatHistory));
-    }
-    
-    // ユーザシステムプロンプトの読み込み・保存（全プロジェクト共通）
-    function loadSystemPrompt() {
-      const prompt = localStorage.getItem(SYSTEM_PROMPT_KEY);
-      document.getElementById('systemPrompt').value = prompt ? prompt : "";
-    }
-    function saveSystemPrompt() {
-      localStorage.setItem(SYSTEM_PROMPT_KEY, document.getElementById('systemPrompt').value);
-    }
-    
-    // チャット履歴表示更新と下部までスクロールする処理
-    function updateChatHistoryDisplay() {
+
+    // チャット履歴表示更新と自動スクロール
+    function updateChatHistoryDisplay(history) {
       const chatDiv = document.getElementById('chatHistory');
       chatDiv.innerHTML = '';
-      chatHistory.forEach(msg => {
+      history.forEach(msg => {
         const p = document.createElement('p');
         p.textContent = msg.role + ": " + msg.content;
         chatDiv.appendChild(p);
       });
       chatDiv.scrollTop = chatDiv.scrollHeight;
     }
-    
-    // iframe更新（キャッシュ防止のためタイムスタンプ付与）
+
+    // iframe 更新
     function updateIframe() {
       const projectName = getProjectName();
       document.getElementById('htmlDisplay').src = `/${projectName}.html?t=${new Date().getTime()}`;
     }
-    
-    // プロジェクト設定ボタン：プロジェクト変更時に履歴とシステムプロンプトを読み込む
-    document.getElementById('setProject').addEventListener('click', () => {
+
+    // プロジェクト設定ボタン：押されたときに、サーバから履歴とユーザシステムプロンプトを読み込む
+    document.getElementById('setProject').addEventListener('click', async () => {
       const projectName = getProjectName();
       localStorage.setItem('currentProjectName', projectName);
-      loadChatHistory();
-      loadSystemPrompt();
-      updateChatHistoryDisplay();
+      await loadUserSystemPrompt();
+      await loadChatHistory();
       updateIframe();
     });
-    
-    // ページ読み込み時にプロジェクトごとの履歴とシステムプロンプトを読み込む
-    window.addEventListener('load', () => {
-      loadChatHistory();
-      loadSystemPrompt();
-      updateChatHistoryDisplay();
+
+    // ページ読み込み時にプロジェクトごとの履歴とユーザシステムプロンプトを読み込む
+    window.addEventListener('load', async () => {
+      await loadUserSystemPrompt();
+      await loadChatHistory();
       updateIframe();
     });
-    
-    // チャット送信処理
+
+    // チャット送信処理：サーバからの返信後にメッセージ入力欄をクリアする
     document.getElementById('sendChat').addEventListener('click', async () => {
       const projectName = getProjectName();
-      // ユーザが入力したシステムプロンプト
       const userSystemPrompt = document.getElementById('systemPrompt').value;
-      // 固定システムプロンプトとユーザ入力を結合
-      const combinedSystemPrompt = FIXED_SYSTEM_PROMPT + "\n" + userSystemPrompt;
-      
-      // 共通システムプロンプトは保存
-      saveSystemPrompt();
-      
-      // ユーザ入力のチャットメッセージを取得
-      const userMessage = document.getElementById('chatInput').value;
-      // ユーザメッセージをチャット履歴に追加
-      chatHistory.push({ role: 'user', content: userMessage });
-      updateChatHistoryDisplay();
-      
-      // 送信後、チャット入力欄をクリア
-      document.getElementById('chatInput').value = "";
-      
-      // プログレスインジケーター表示
+      const payload = {
+        userSystemPrompt: userSystemPrompt,
+        userMessage: document.getElementById('chatInput').value,
+        projectName: projectName
+      };
       document.getElementById('progressIndicator').style.display = 'block';
-      
       try {
         const response = await fetch('/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            systemPrompt: combinedSystemPrompt,
-            chatHistory: chatHistory,
-            userMessage: userMessage,
-            projectName: projectName
-          })
+          body: JSON.stringify(payload)
         });
-        const data = await response.json();
-        
-        // 受信したアシスタントの返信をチャット履歴に追加
-        chatHistory.push({ role: 'assistant', content: data.chat });
-        updateChatHistoryDisplay();
-        saveChatHistory();
-        
-        // サーバからHTML出力があればiframe更新
-        if (data.html && data.html.trim() !== "") {
-          updateIframe();
-        }
+        await response.json();
+        await loadChatHistory();
+        updateIframe();
+        // サーバ側からの返信が返ってきた後にメッセージ入力欄をクリア
+        document.getElementById('chatInput').value = "";
       } catch (error) {
-        console.error('エラーが発生しました:', error);
+        console.error('Error sending chat:', error);
       } finally {
         document.getElementById('progressIndicator').style.display = 'none';
       }
     });
-    
-    // 履歴クリアボタン：プロジェクトごとの履歴をクリア
-    document.getElementById('clearHistory').addEventListener('click', () => {
-      chatHistory = [];
+
+    // 履歴クリアボタン：サーバ上のチャット履歴を削除する
+    document.getElementById('clearHistory').addEventListener('click', async () => {
       const projectName = getProjectName();
-      localStorage.removeItem(getChatHistoryKey(projectName));
-      updateChatHistoryDisplay();
+      try {
+        const response = await fetch(`/chatHistory?projectName=${encodeURIComponent(projectName)}`, { method: 'DELETE' });
+        if (response.ok) {
+          updateChatHistoryDisplay([]);
+        }
+      } catch (e) {
+        console.error("Error clearing chat history:", e);
+      }
     });
   </script>
 </body>
