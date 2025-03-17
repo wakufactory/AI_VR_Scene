@@ -85,6 +85,15 @@
     button {
       cursor: pointer;
     }
+    span.user {
+      color:#f88;
+    }
+    span.user:before {
+      content:'👤' ;
+    }
+    span.assistant:before {
+      content:'🤖' ;
+    }
   </style>
 </head>
 <body>
@@ -170,7 +179,7 @@
       chatDiv.innerHTML = '';
       history.forEach(msg => {
         const p = document.createElement('p');
-        p.textContent = msg.role + ": " + msg.content;
+        p.innerHTML = `<span class=${msg.role}>${msg.role}: ${msg.content}</span>`;
         chatDiv.appendChild(p);
       });
       chatDiv.scrollTop = chatDiv.scrollHeight;
