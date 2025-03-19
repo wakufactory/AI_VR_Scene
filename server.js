@@ -113,7 +113,7 @@ app.get('/systemPrompt/fixed', (req, res) => {
 
 //
 // POST /chat
-// ユーザメッセージ受信、プロンプト更新、チャット履歴保存、ChatGPT API 呼び出し、HTML生成、git 自動コミット
+// ユーザメッセージ受信、プロンプト更新、チャット履歴保存、ChatGPT API 呼び出し、HTML生成、git 自動コミット＋プロジェクト名をコミットメッセージ先頭に追加
 //
 app.post('/chat', async (req, res) => {
   try {
@@ -229,12 +229,18 @@ app.post('/chat', async (req, res) => {
 });
 
 //
-// commitFilesTogether 関数：ログファイルと HTML ファイルの両方を add してから、まとめて commit する
+// commitFilesTogether 関数：ログファイルと HTML ファイルの両方を add してから、まとめて commit する。
+// コミットメッセージの1行目にプロジェクト名を追加します。
 //
 const genDir = path.join(__dirname, 'gen');
 async function commitFilesTogether(logFilePath, htmlFilePath, assistantMessage) {
+  // ログファイル名からプロジェクト名を抽出（例: gen/log/[projectName].json -> projectName）
+  const projectName = path.basename(logFilePath, '.json');
   // シンプルなサニタイズ例：シングルクォートを削除
-  const commitMsg = assistantMessage.trim().replace(/'/g, "");
+  const sanitizedMessage = assistantMessage.trim().replace(/'/g, "");
+  // コミットメッセージの先頭行にプロジェクト名を追加
+  const commitMsg = `${projectName}: ${sanitizedMessage}`;
+  
   // 対象ファイルが存在するかチェックし、gen 配下からの相対パスを取得
   let filesToCommit = [];
   
