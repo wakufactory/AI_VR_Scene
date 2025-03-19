@@ -11,20 +11,33 @@ require('dotenv').config();
 
 const app = express();
 app.use(bodyParser.json());
+
+// 静的ファイル（publicフォルダ）は従来通り
 app.use(express.static('public'));
 
-// ログ保存用フォルダ「log」が存在しなければ作成
-const logDir = path.join(__dirname, 'log');
+// 環境変数からログとHTML保存先のディレクトリを取得
+// 指定がなければデフォルトのディレクトリを利用
+const logDir = process.env.LOG_DIR ? path.resolve(process.env.LOG_DIR) : path.join(__dirname, 'gen/log');
+const htmlDir = process.env.HTML_DIR ? path.resolve(process.env.HTML_DIR) : path.join(__dirname, 'gen/html');
+
+// ログ保存用フォルダが存在しなければ作成（再帰的に）
 if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir);
+  fs.mkdirSync(logDir, { recursive: true });
 }
+
+// 生成HTML保存用フォルダが存在しなければ作成（再帰的に）
+if (!fs.existsSync(htmlDir)) {
+  fs.mkdirSync(htmlDir, { recursive: true });
+}
+
+// /gen パスで生成HTMLを参照できるように静的ルーティングを追加
+app.use('/gen', express.static(htmlDir));
 
 // 固定システムプロンプトの保存ファイル（全プロジェクト共通）
 // ※このファイルは手動で更新してください
-const fixedPromptFile = path.join(logDir, 'fixedSystemPrompt.txt');
+const fixedPromptFile = path.join(__dirname, 'fixedSystemPrompt.txt');
 // ユーザシステムプロンプトの保存ファイル（全プロジェクト共通）
-const userPromptFile = path.join(logDir, 'userSystemPrompt.txt');
-
+const userPromptFile = path.join(__dirname, 'gen/userSystemPrompt.txt');
 
 // GET /chatHistory?projectName=xxx
 app.get('/chatHistory', (req, res) => {
@@ -130,8 +143,8 @@ app.post('/chat', async (req, res) => {
     // API 呼び出し用のメッセージ配列（現在の履歴をそのまま利用）
     const messages = chatHistory.slice();
     
-    // オプション：最新のHTMLコンテキストを追加（public/プロジェクト名.html が存在する場合）
-    const htmlFilePath = path.join(__dirname, 'public', projectName + '.html');
+    // オプション：最新のHTMLコンテキストを追加（htmlDir/プロジェクト名.html が存在する場合）
+    const htmlFilePath = path.join(htmlDir, projectName + '.html');
     if (fs.existsSync(htmlFilePath)) {
       const latestHtml = fs.readFileSync(htmlFilePath, 'utf8');
       if (latestHtml && latestHtml.trim() !== "") {
@@ -173,9 +186,9 @@ app.post('/chat', async (req, res) => {
     // アシスタントの返信を履歴に追加
     chatHistory.push({ role: 'assistant', content: result.chat });
     
-    // 返ってきたHTMLがあれば、public/プロジェクト名.html に保存
+    // 返ってきたHTMLがあれば、htmlDir/プロジェクト名.html に保存
     if (projectName && result.html && result.html.trim() !== "") {
-      fs.writeFileSync(path.join(__dirname, 'public', projectName + '.html'), result.html, 'utf8');
+      fs.writeFileSync(path.join(htmlDir, projectName + '.html'), result.html, 'utf8');
     }
     
     // 更新したチャット履歴をファイルに保存

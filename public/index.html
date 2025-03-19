@@ -179,17 +179,18 @@
       chatDiv.innerHTML = '';
       history.forEach(msg => {
         const p = document.createElement('p');
-        p.innerHTML = `<span class=${msg.role}>${msg.role}: ${msg.content}</span>`;
+        p.innerHTML = `<span class=${msg.role}>${msg.role}: ${msg.content.replaceAll('<','&lt;')}</span>`;
         chatDiv.appendChild(p);
       });
       chatDiv.scrollTop = chatDiv.scrollHeight;
     }
 
-    // iframe 更新
-    function updateIframe() {
-      const projectName = getProjectName();
-      document.getElementById('htmlDisplay').src = `/${projectName}.html?t=${new Date().getTime()}`;
-    }
+      // iframe 更新：生成HTMLは /gen/ のパスで参照する
+      function updateIframe() {
+        const projectName = getProjectName();
+        document.getElementById('htmlDisplay').src = `/gen/${projectName}.html?t=${new Date().getTime()}`;
+      }
+
 
     // プロジェクト設定ボタン：押されたときに、サーバから履歴とユーザシステムプロンプトを読み込み、プロジェクト名を保存する
     document.getElementById('setProject').addEventListener('click', async () => {
