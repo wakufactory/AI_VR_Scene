@@ -38,6 +38,36 @@ const fixedPromptFile = path.join(__dirname, 'fixedSystemPrompt.txt');
 // ユーザシステムプロンプトの保存ファイルはログディレクトリ内に保存
 const userPromptFile = path.join(logDir, 'userSystemPrompt.txt');
 
+// Node.js の child_process モジュールを利用
+const { exec } = require('child_process');
+
+// gen フォルダの絶対パスを取得（__dirname は server.js のあるディレクトリを想定）
+const genDir = path.join(__dirname, 'gen');
+
+// ファイルパスを相対パスに変換して、gen 内で git コマンドを実行する関数
+function gitCommit(filePath, commitMessage) {
+  // filePath は絶対パスの場合、gen からの相対パスに変換
+  const relativeFilePath = path.relative(genDir, filePath);
+  
+  // git add を実行
+  exec(`git add ${relativeFilePath}`, { cwd: genDir }, (err, stdout, stderr) => {
+    if (err) {
+      console.error("git add エラー:", stderr);
+      return;
+    }
+    // git commit を実行（commitMessage 内のシングルクォートなどは必要に応じてサニタイズしてください）
+    exec(`git commit -m "${commitMessage}"`, { cwd: genDir }, (err2, stdout2, stderr2) => {
+      if (err2) {
+        console.error("git commit エラー:", stderr2);
+        return;
+      }
+      console.log("git commit 成功:", stdout2);
+    });
+  });
+}
+
+
+
 // GET /chatHistory?projectName=xxx
 app.get('/chatHistory', (req, res) => {
   const projectName = req.query.projectName;
@@ -185,7 +215,7 @@ app.post('/chat', async (req, res) => {
     
     // アシスタントの返信を履歴に追加
     chatHistory.push({ role: 'assistant', content: result.chat });
-    
+    console.log(result.chat) 
     // 返ってきたHTMLがあれば、htmlDir/プロジェクト名.html に保存
     if (projectName && result.html && result.html.trim() !== "") {
       fs.writeFileSync(path.join(htmlDir, projectName + '.html'), result.html, 'utf8');
@@ -193,6 +223,18 @@ app.post('/chat', async (req, res) => {
     
     // 更新したチャット履歴をファイルに保存
     fs.writeFileSync(logPath, JSON.stringify(chatHistory, null, 2), 'utf8');
+   
+    
+    // ファイルのコミット（assistant メッセージを commit message として利用）
+    if (result.chat && result.chat.trim() !== "") {
+      // git commit では改行や特殊文字に注意が必要なので、必要ならサニタイズしてください
+      const commitMsg = result.chat.trim().replace(/'/g, ""); // シンプルな例：シングルクォートを削除
+      gitCommit(logPath, commitMsg);
+      if (fs.existsSync(htmlFilePath)) {
+        gitCommit(htmlFilePath, commitMsg);
+      }
+    }
+
     
     res.json(result);
   } catch (error) {
@@ -209,6 +251,8 @@ app.post('/chat', async (req, res) => {
     res.status(500).json({ error: 'サーバエラーが発生しました。' });
   }
 });
+
+
 
 // HTTPS サーバの起動設定
 const PORT = process.env.PORT || 3000;
