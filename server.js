@@ -12,20 +12,20 @@ require('dotenv').config();
 const app = express();
 app.use(bodyParser.json());
 
-// 静的ファイル（publicフォルダ）は従来通り
+// public フォルダは従来通り静的ファイルの提供に利用
 app.use(express.static('public'));
 
 // 環境変数からログとHTML保存先のディレクトリを取得
-// 指定がなければデフォルトのディレクトリを利用
-const logDir = process.env.LOG_DIR ? path.resolve(process.env.LOG_DIR) : path.join(__dirname, 'gen/log');
-const htmlDir = process.env.HTML_DIR ? path.resolve(process.env.HTML_DIR) : path.join(__dirname, 'gen/html');
+// 指定がなければデフォルトとして、ログは gen/log、HTMLは gen/html を利用
+const logDir = process.env.LOG_DIR ? path.resolve(process.env.LOG_DIR) : path.join(__dirname, 'gen', 'log');
+const htmlDir = process.env.HTML_DIR ? path.resolve(process.env.HTML_DIR) : path.join(__dirname, 'gen', 'html');
 
-// ログ保存用フォルダが存在しなければ作成（再帰的に）
+// ログ保存用フォルダが存在しなければ再帰的に作成
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
-// 生成HTML保存用フォルダが存在しなければ作成（再帰的に）
+// 生成HTML保存用フォルダが存在しなければ再帰的に作成
 if (!fs.existsSync(htmlDir)) {
   fs.mkdirSync(htmlDir, { recursive: true });
 }
@@ -33,11 +33,10 @@ if (!fs.existsSync(htmlDir)) {
 // /gen パスで生成HTMLを参照できるように静的ルーティングを追加
 app.use('/gen', express.static(htmlDir));
 
-// 固定システムプロンプトの保存ファイル（全プロジェクト共通）
-// ※このファイルは手動で更新してください
+// 固定システムプロンプトはプロジェクトルートから読み込む
 const fixedPromptFile = path.join(__dirname, 'fixedSystemPrompt.txt');
-// ユーザシステムプロンプトの保存ファイル（全プロジェクト共通）
-const userPromptFile = path.join(__dirname, 'gen/userSystemPrompt.txt');
+// ユーザシステムプロンプトの保存ファイルはログディレクトリ内に保存
+const userPromptFile = path.join(logDir, 'userSystemPrompt.txt');
 
 // GET /chatHistory?projectName=xxx
 app.get('/chatHistory', (req, res) => {
@@ -88,6 +87,7 @@ app.get('/systemPrompt/user', (req, res) => {
 
 // GET /systemPrompt/fixed
 app.get('/systemPrompt/fixed', (req, res) => {
+  // 固定プロンプトはプロジェクトルートの fixedSystemPrompt.txt を利用
   if (fs.existsSync(fixedPromptFile)) {
     try {
       const data = fs.readFileSync(fixedPromptFile, 'utf8');
@@ -115,12 +115,12 @@ app.post('/chat', async (req, res) => {
       fs.writeFileSync(userPromptFile, userSystemPrompt, 'utf8');
     }
     
-    // 固定システムプロンプトはファイルから読み込む（手動更新）
+    // 固定システムプロンプトはプロジェクトルートのファイルから読み込む（手動更新）
     const savedFixedPrompt = fs.existsSync(fixedPromptFile) ? fs.readFileSync(fixedPromptFile, 'utf8') : "";
     const savedUserPrompt = fs.existsSync(userPromptFile) ? fs.readFileSync(userPromptFile, 'utf8') : "";
     const combinedSystemPrompt = savedFixedPrompt + "\n" + savedUserPrompt;
     
-    // チャット履歴ファイル (log/プロジェクト名.json)
+    // チャット履歴ファイル (logDir/プロジェクト名.json)
     const logPath = path.join(logDir, projectName + '.json');
     let chatHistory = [];
     if (fs.existsSync(logPath)) {
@@ -155,7 +155,7 @@ app.post('/chat', async (req, res) => {
       }
     }
     
-    // API に送信するペイロード
+    // API に送信するペイロードを作成
     const payload = {
       model: 'o3-mini',
       messages: messages,
