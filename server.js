@@ -228,6 +228,55 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+// GET /api/list
+// gen/html 内の HTML ファイル一覧と、各ファイルに対応する gen/log/[プロジェクト名].json の最初の user メッセージ、最終更新日を JSON 形式で返す
+app.get('/api/list', (req, res) => {
+  fs.readdir(htmlDir, (err, files) => {
+    if (err) {
+      console.error("HTML ディレクトリの読み込みエラー:", err);
+      return res.status(500).json({ error: "Error reading html directory." });
+    }
+    // .html ファイルのみ（list.html は除く）
+    files = files.filter(file => file.endsWith('.html') && file !== 'list.html');
+    let listData = [];
+    files.forEach(file => {
+      // プロジェクト名はファイル名から拡張子を除いたもの
+      const projectName = file.slice(0, -5);
+      const logFile = path.join(logDir, projectName + '.json');
+      let description = "";
+      if (fs.existsSync(logFile)) {
+        try {
+          const data = fs.readFileSync(logFile, 'utf8');
+          const logData = JSON.parse(data);
+          // 最初の user メッセージを取得
+          const firstUser = logData.find(msg => msg.role === 'user');
+          if (firstUser) {
+            description = firstUser.content;
+          }
+        } catch(e) {
+          description = "";
+        }
+      }
+      // 最終更新日は、html ファイルの最終修正日時から取得
+      let lastModified = "";
+      try {
+        const stats = fs.statSync(path.join(htmlDir, file));
+        lastModified = stats.mtime.toISOString();
+      } catch(e) {
+        lastModified = "";
+      }
+      listData.push({
+        filename: file,
+        projectName: projectName,
+        description: description,
+        lastModified: lastModified
+      });
+    });
+    res.json(listData);
+  });
+});
+
+
 //
 // commitFilesTogether 関数：ログファイルと HTML ファイルの両方を add してから、まとめて commit する。
 // コミットメッセージの1行目にプロジェクト名を追加します。
