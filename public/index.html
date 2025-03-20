@@ -231,6 +231,7 @@
         updateIframe();
         // サーバからの返信後にメッセージ入力欄をクリアする
         document.getElementById('chatInput').value = "";
+        playNotificationSound();  // 結果到着時にサウンドを鳴らす
       } catch (error) {
         console.error('Error sending chat:', error);
       } finally {
@@ -250,6 +251,33 @@
         console.error("Error clearing chat history:", e);
       }
     });
+    function playNotificationSound() {
+      // AudioContext の生成（ブラウザ互換対応）
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // OscillatorNode の生成（sine 波）
+      const oscillator = audioCtx.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(480, audioCtx.currentTime); // 周波数480Hz
+      
+      // GainNode の生成（音量調整用）
+      const gainNode = audioCtx.createGain();
+      // 初期音量設定（0.1程度の低めの音量）
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      
+      // エンベロープの設定：0.1 の音量から 0.3秒後に 0.001 まで指数的に減衰
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      
+      // ノードの接続：oscillator -> gainNode -> 出力先
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      // 音の開始と停止
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.3);
+    }
+    
+
   </script>
 </body>
 </html>
