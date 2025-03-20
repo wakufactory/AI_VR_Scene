@@ -172,7 +172,8 @@ app.post('/chat', async (req, res) => {
     const payload = {
       model: 'o3-mini',
       messages: messages,
-      reasoning_effort: 'high'
+      reasoning_effort: 'high',
+      response_format: {'type':'json_object'}  // 戻り値を JSON オブジェクトとして指定
     };
     
     console.log("Sending API request with payload:", payload);
@@ -188,12 +189,12 @@ app.post('/chat', async (req, res) => {
     );
     console.log("API response data:", response.data);
     
-    const apiReply = response.data.choices[0].message.content;
+    const apiReply = response.data.choices[0].message.content;    
     let result;
     try {
       result = JSON.parse(apiReply);
     } catch (e) {
-      result = { html: '', chat: apiReply };
+      result = { html: '', chat: "response error" };
     }
     
     // アシスタントの返信をチャット履歴に追加
