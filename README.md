@@ -1,5 +1,6 @@
+--- このツールはマニュアルも含めすべてChatGPTにより生成されました ---
 # AI VR Scene Maker マニュアル
- 
+
 ## 1. 概要
 
 このツールは、Node.js ベースのサーバと HTML/JavaScript を用いたクライアントで構成され、ChatGPT API を利用してチャット応答と WebXR コンテンツを生成する AI エージェントです。  
