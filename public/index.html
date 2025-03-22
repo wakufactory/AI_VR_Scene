@@ -113,11 +113,11 @@
         </div>
         <div style="margin-top:10px;">
           <label for="systemPrompt">システムプロンプト（ユーザ入力）：</label><br>
-          <textarea id="systemPrompt" rows="4" cols="50" placeholder="追加の仕様を入力"></textarea>
+          <textarea id="systemPrompt" rows="4" cols="80" placeholder="追加の仕様を入力"></textarea>
         </div>
         <div style="margin-top:10px;">
           <label for="chatInput">メッセージ：</label><br>
-          <textarea id="chatInput" placeholder="メッセージを入力" rows="3" cols="50"></textarea><br>
+          <textarea id="chatInput" placeholder="メッセージを入力" rows="5" cols="80"></textarea><br>
           <button id="sendChat">送信</button>
         </div>
         <div id="progressIndicator">考え中</div>
@@ -130,6 +130,16 @@
   </div>
   
   <script>
+    // iframeからのメッセージをリスンする
+    window.addEventListener('message', function(event) {
+      if (event.data && event.data.type === "iframeError") {
+          console.error("iframe内で発生したエラーを検知:", event.data);
+          const err = event.data 
+          // ユーザメッセージに挿入
+          document.getElementById('chatInput').value = `エラーがでました\n${err.lineno}:${err.colno} ${err.message}`
+      }
+    });
+  
     // ユーザシステムプロンプトは全プロジェクト共通のものとしてサーバに保存される
     const SYSTEM_PROMPT_KEY = 'systemPrompt_common';
 
