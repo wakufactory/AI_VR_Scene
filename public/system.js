@@ -12,4 +12,15 @@ window.onerror = function(message, source, lineno, colno, error) {
 	}, '*');
 	return true;
 };
+// 非同期エラー（Promiseの未処理拒否）をキャッチするためのイベントリスナー
+window.addEventListener('unhandledrejection', function(event) {
+	parent.postMessage({
+			type: 'iframeError',
+			message: event.reason,
+			lineno:'-',
+			colno:'-'
+		}, '*');
+		// ブラウザのデフォルト動作（警告表示など）を防ぎたい場合はpreventDefault()を呼び出す
+		event.preventDefault();
+});
 }
