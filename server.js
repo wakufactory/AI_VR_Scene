@@ -39,6 +39,8 @@ app.use('/gen', express.static(htmlDir));
 
 // 固定システムプロンプトはプロジェクトルートの fixedSystemPrompt.txt から読み込む
 const fixedPromptFile = path.join(__dirname, 'fixedSystemPrompt.txt');
+// テンプレートファイルはプロジェクトルートの template.html から読み込む
+const templateFile = path.join(__dirname, 'template.html');
 // ユーザシステムプロンプトはログディレクトリ内に保存（gen/log/userSystemPrompt.txt）
 const userPromptFile = path.join(logDir, 'userSystemPrompt.txt');
 
@@ -164,6 +166,14 @@ app.post('/chat', async (req, res) => {
         messages.push({
           role: 'system',
           content: `最新のHTMLコンテキスト:\n${latestHtml}`
+        });
+      }
+    } else if(fs.existsSync(templateFile)){ // テンプレートtemplate.htmlがあれば最初のコンテキストとする
+      const latestHtml = fs.readFileSync(templateFile, 'utf8') 
+      if (latestHtml && latestHtml.trim() !== "") {
+        messages.push({
+          role: 'system',
+          content: `最初のHTMLコンテキスト:\n${latestHtml}`
         });
       }
     }
