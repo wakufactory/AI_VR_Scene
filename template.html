@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    <title></title>
+  </head>
+  <body>
+    <a-scene isMobile="false" device-orientation-permission-ui="enabled: false" xr-mode-ui="XRMode:xr">
+      <!--　sky -->
+      <a-sky hide-on-enter-ar  color="#87CEEB"></a-sky>
+
+      <!-- Ground at y=0 -->
+      <a-plane hide-on-enter-ar  position="0 0 0" rotation="-90 0 0" width="300" height="300" color="#7BC8A4"></a-plane>
+
+      <!-- generated objects here -->
+
+      <!-- Camera -->
+      <a-entity id="camrig" position="0 1 3">
+        <a-camera look-controls wasd-controls></a-camera>
+      </a-entity>
+    </a-scene>
+  </body>
+</html>
