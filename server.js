@@ -296,8 +296,11 @@ const genDir = path.join(__dirname, 'gen');
 async function commitFilesTogether(logFilePath, htmlFilePath, assistantMessage) {
   // ログファイル名からプロジェクト名を抽出（例: gen/log/[projectName].json -> projectName）
   const projectName = path.basename(logFilePath, '.json');
-  // シンプルなサニタイズ例：シングルクォートを削除
-  const sanitizedMessage = assistantMessage.trim().replace(/'/g, "");
+  // コミットメッセージでシェル展開が起こらないように不要な文字を除去
+  const sanitizedMessage = assistantMessage
+    .trim()
+    .replace(/["']/g, "")
+    .replace(/\r?\n/g, " ");
   // コミットメッセージの先頭行にプロジェクト名を追加
   const commitMsg = `${projectName}: ${sanitizedMessage}`;
   
