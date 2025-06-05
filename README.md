@@ -50,13 +50,17 @@
 
 ```env
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+OPENAI_MODEL=o3-mini
+REASONING_EFFORT=high
 PORT=3000
 GIT_AUTO_COMMIT=false
 ```
 
-- `OPENAI_API_KEY` は発行された実際の API キーに置き換えてください。  
-- `GIT_AUTO_COMMIT` は Git 自動コミットを行うかどうかの設定です。  
-	デフォルトは `false` で、必要に応じて `true` に設定してください。  
+- `OPENAI_API_KEY` は発行された実際の API キーに置き換えてください。
+- `OPENAI_MODEL` は利用する OpenAI モデルを指定します。省略時は `o3-mini` が使
+用されます。
+- `REASONING_EFFORT` は API 呼び出し時の `reasoning_effort` パラメータを指定します。
+- `GIT_AUTO_COMMIT` は Git 自動コミットを行うかどうかの設定です。デフォルトは `false` で、必要に応じて `true` に設定してください。
 - 必要に応じて `LOG_DIR` や `HTML_DIR` を上書きできますが、指定がない場合はデフォルトで `gen/log` および `gen/html` が使用されます。
 
 ### 4.2. 自己署名証明書の作成

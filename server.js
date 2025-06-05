@@ -26,6 +26,10 @@ app.use(express.static('public'));
 const logDir = process.env.LOG_DIR ? path.resolve(process.env.LOG_DIR) : path.join(__dirname, 'gen', 'log');
 const htmlDir = process.env.HTML_DIR ? path.resolve(process.env.HTML_DIR) : path.join(__dirname, 'gen', 'html');
 
+// OpenAI API 設定（.env から読み込み、指定がなければデフォルト値を利用）
+const openAiModel = process.env.OPENAI_MODEL || 'o3-mini';
+const reasoningEffort = process.env.REASONING_EFFORT || 'high';
+
 // 必要なディレクトリが存在しなければ再帰的に作成
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
@@ -180,10 +184,10 @@ app.post('/chat', async (req, res) => {
     
     // API に送信するペイロードの作成
     const payload = {
-      model: 'o3-mini',
+      model: openAiModel,
       messages: messages,
-      reasoning_effort: 'high',
-      response_format: {'type':'json_object'}  // 戻り値を JSON オブジェクトとして指定
+      reasoning_effort: reasoningEffort,
+      response_format: { type: 'json_object' }  // 戻り値を JSON オブジェクトとして指定
     };
     
     console.log("Sending API request with payload:", payload);
