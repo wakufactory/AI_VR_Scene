@@ -28,7 +28,7 @@ const htmlDir = process.env.HTML_DIR ? path.resolve(process.env.HTML_DIR) : path
 
 // OpenAI API 設定（.env から読み込み、指定がなければデフォルト値を利用）
 const openAiModel = process.env.OPENAI_MODEL || 'o4-mini';
-const reasoningEffort = process.env.REASONING_EFFORT || 'high';
+const reasoningEffort = process.env.REASONING_EFFORT || '';
 
 // 必要なディレクトリが存在しなければ再帰的に作成
 if (!fs.existsSync(logDir)) {
@@ -183,12 +183,12 @@ app.post('/chat', async (req, res) => {
     }
     
     // API に送信するペイロードの作成
-    const payload = {
-      model: openAiModel,
-      messages: messages,
-      reasoning_effort: reasoningEffort,
-      response_format: { type: 'json_object' }  // 戻り値を JSON オブジェクトとして指定
-    };
+const payload = {
+  model: openAiModel,
+  messages: messages,
+  ...(reasoningEffort && { reasoning_effort: reasoningEffort }), // Include only if not empty
+  response_format: { type: 'json_object' }
+};
     
     console.log("Sending API request with payload:", payload);
     const response = await axios.post(
@@ -212,7 +212,10 @@ app.post('/chat', async (req, res) => {
     }
     
     // アシスタントの返信をチャット履歴に追加
-    chatHistory.push({ role: 'assistant', content: result.chat });
+    if (!result.chat || result.chat.trim() === "") {
+  return res.status(400).json({ error: "chat is empty" });
+}
+chatHistory.push({ role: 'assistant', content: result.chat });
     
     // 返ってきたHTMLがあれば、gen/html/プロジェクト名.html に保存
     if (projectName && result.html && result.html.trim() !== "") {
