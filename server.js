@@ -27,7 +27,7 @@ const logDir = process.env.LOG_DIR ? path.resolve(process.env.LOG_DIR) : path.jo
 const htmlDir = process.env.HTML_DIR ? path.resolve(process.env.HTML_DIR) : path.join(__dirname, 'gen', 'html');
 
 // OpenAI API 設定（.env から読み込み、指定がなければデフォルト値を利用）
-const openAiModel = process.env.OPENAI_MODEL || 'o3-mini';
+const openAiModel = process.env.OPENAI_MODEL || 'o4-mini';
 const reasoningEffort = process.env.REASONING_EFFORT || 'high';
 
 // 必要なディレクトリが存在しなければ再帰的に作成
