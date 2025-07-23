@@ -229,6 +229,7 @@ app.post('/chat', async (req, res) => {
     
     res.json(result);
   } catch (error) {
+    let errorMsg = 'サーバエラーが発生しました。';
     if (error.response) {
       console.error(
         'APIリクエストが失敗しました。ステータス:',
@@ -236,10 +237,19 @@ app.post('/chat', async (req, res) => {
         'レスポンスデータ:',
         error.response.data
       );
+      // OpenAI APIからのエラー詳細があればクライアントに返す
+      if (error.response.data && error.response.data.error && error.response.data.error.message) {
+        errorMsg = `APIエラー: ${error.response.data.error.message}`;
+      } else if (typeof error.response.data === 'string') {
+        errorMsg = `APIエラー: ${error.response.data}`;
+      }
     } else {
       console.error('APIリクエスト中にエラーが発生しました:', error);
+      if (error.message) {
+        errorMsg = error.message;
+      }
     }
-    res.status(500).json({ error: 'サーバエラーが発生しました。' });
+    res.status(500).json({ error: errorMsg });
   }
 });
 

@@ -121,6 +121,7 @@
           <button id="sendChat">送信</button>
         </div>
         <div id="progressIndicator">考え中</div>
+        <div id="errorMessage" style="color:#f88; font-weight:bold; margin-top:10px;"></div>
         <div id="chatHistory"></div>
       </div>
       <div id="rightPanel">
@@ -220,12 +221,23 @@
         projectName: projectName
       };
       document.getElementById('progressIndicator').style.display = 'block';
+      document.getElementById('errorMessage').textContent = ""; // 送信時にエラー表示を消す
       try {
         const response = await fetch('/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        if (!response.ok) {
+          // サーバからのエラー内容を取得して表示
+          let errMsg = "サーバエラーが発生しました。";
+          try {
+            const errData = await response.json();
+            if (errData && errData.error) errMsg = errData.error;
+          } catch {}
+          document.getElementById('errorMessage').textContent = errMsg;
+          return; // 入力欄はクリアしない
+        }
         await response.json();
         await loadChatHistory();
         updateIframe();
@@ -233,7 +245,9 @@
         document.getElementById('chatInput').value = "";
         playNotificationSound();  // 結果到着時にサウンドを鳴らす
       } catch (error) {
+        document.getElementById('errorMessage').textContent = "ネットワークエラーまたはサーバに接続できません。";
         console.error('Error sending chat:', error);
+        // 入力欄はクリアしない
       } finally {
         document.getElementById('progressIndicator').style.display = 'none';
       }
