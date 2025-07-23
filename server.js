@@ -79,6 +79,20 @@ app.delete('/chatHistory', (req, res) => {
     return res.status(400).json({ error: 'projectName is required' });
   }
   const logPath = path.join(logDir, projectName + '.json');
+  
+  // Backup existing log file
+  if (fs.existsSync(logPath)) {
+    let backupIndex = 1;
+    let backupPath;
+    do {
+      backupPath = path.join(logDir, `${projectName}.${backupIndex}.json`);
+      backupIndex++;
+    } while (fs.existsSync(backupPath));
+    
+    fs.copyFileSync(logPath, backupPath);
+  }
+  
+  // Delete the original log file
   if (fs.existsSync(logPath)) {
     fs.unlinkSync(logPath);
   }
